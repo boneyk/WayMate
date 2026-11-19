@@ -1,5 +1,16 @@
 import { createContext, useContext } from "react";
-import { makeAutoObservable, runInAction } from "mobx";
+import { makeAutoObservable } from "mobx";
+import {
+  disconnectSharedDatabase,
+  connectSharedDatabase,
+  retrySharedSync,
+  scheduleSharedSave,
+} from "./tripSync.js";
+import {
+  hasMeaningfulLocalData,
+  SHARED_SNAPSHOT_KEY,
+  normalizeSharedState,
+} from "./sharedTripSync.js";
 
 const STORAGE_KEY = "sahalin-trip-planner-v1";
 const DEFAULT_CATEGORIES = ["Экскурсии", "Размещение", "Горы"];
@@ -174,9 +185,29 @@ class TripStore {
   travelers = 2;
   participants = [];
   proposals = [];
+  syncStatus = "local";
+  syncError = "";
+  syncClient = null;
+  syncChannel = null;
+  syncTimer = null;
+  syncWritePromise = Promise.resolve();
+  syncVersion = 0;
+  applyingRemoteState = false;
+  onlineHandler = null;
+  hasMeaningfulLocalState = false;
   constructor() {
-    makeAutoObservable(this);
+    makeAutoObservable(this, {
+      syncClient: false,
+      syncChannel: false,
+      syncTimer: false,
+      syncWritePromise: false,
+      syncVersion: false,
+      applyingRemoteState: false,
+      onlineHandler: false,
+      hasMeaningfulLocalState: false,
+    });
     const saved = readSavedState();
+    this.hasMeaningfulLocalState = hasMeaningfulLocalData(saved);
     this.customItems = (saved.customItems ?? []).map((item) =>
       item.category === "Жильё"
         ? {
@@ -188,7 +219,7 @@ class TripStore {
         : item,
     );
     this.itemOverrides = saved.itemOverrides ?? {};
-    this.deletedItemIds = [];
+    this.deletedItemIds = saved.deletedItemIds ?? [];
     this.archivedItemIds = [
       ...new Set([
         ...(saved.archivedItemIds ?? []),
@@ -213,27 +244,82 @@ class TripStore {
       };
     });
     this.proposals = saved.proposals ?? [];
-    this.persist();
+    this.writeLocalState();
   }
-  persist() {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        customItems: this.customItems,
-        itemOverrides: this.itemOverrides,
-        deletedItemIds: this.deletedItemIds,
-        archivedItemIds: this.archivedItemIds,
-        customCategories: this.customCategories,
-        deletedCategories: this.deletedCategories,
-        itinerary: this.itinerary,
-        customCosts: this.customCosts,
-        savedItems: this.savedItems,
-        dayCount: this.dayCount,
-        travelers: this.travelers,
-        participants: this.participants,
-        proposals: this.proposals,
-      }),
-    );
+  getPersistedState() {
+    return normalizeSharedState({
+      items: this.items,
+      customItems: this.customItems,
+      itemOverrides: this.itemOverrides,
+      deletedItemIds: this.deletedItemIds,
+      archivedItemIds: this.archivedItemIds,
+      customCategories: this.customCategories,
+      deletedCategories: this.deletedCategories,
+      itinerary: this.itinerary,
+      customCosts: this.customCosts,
+      savedItems: this.savedItems,
+      dayCount: this.dayCount,
+      travelers: this.travelers,
+      participants: this.participants,
+      proposals: this.proposals,
+    });
+  }
+  writeLocalState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.getPersistedState()));
+  }
+  readCloudSnapshot() {
+    try {
+      const state = JSON.parse(localStorage.getItem(SHARED_SNAPSHOT_KEY));
+      return state && typeof state === "object" ? state : null;
+    } catch {
+      return null;
+    }
+  }
+  writeCloudSnapshot(state) {
+    localStorage.setItem(SHARED_SNAPSHOT_KEY, JSON.stringify(state));
+  }
+  applyPersistedState(value) {
+    const state = normalizeSharedState(value);
+    this.items = state.items.length ? state.items : initialItems;
+    this.customItems = state.customItems;
+    this.itemOverrides = state.itemOverrides;
+    this.deletedItemIds = state.deletedItemIds;
+    this.archivedItemIds = [
+      ...new Set([...state.archivedItemIds, ...state.deletedItemIds]),
+    ];
+    this.customCategories = state.customCategories;
+    this.deletedCategories = state.deletedCategories;
+    this.itinerary = state.itinerary;
+    this.customCosts = state.customCosts;
+    this.savedItems = state.savedItems;
+    this.dayCount = Number(state.dayCount) || 7;
+    this.travelers = Number(state.travelers) || state.participants.length || 2;
+    this.participants = Array.from({ length: this.travelers }, (_, index) => {
+      const participant = state.participants[index];
+      return {
+        id: participant?.id || `participant-${crypto.randomUUID()}`,
+        name:
+          participant?.name ||
+          DEFAULT_PARTICIPANT_NAMES[index] ||
+          `РЈС‡Р°СЃС‚РЅРёРє ${index + 1}`,
+      };
+    });
+    this.proposals = state.proposals;
+  }
+  connectSharedDatabase(client) {
+    return connectSharedDatabase(this, client);
+  }
+  disconnectSharedDatabase() {
+    disconnectSharedDatabase(this);
+  }
+  retrySharedSync() {
+    retrySharedSync(this);
+  }
+  persist({ sync = true } = {}) {
+    this.writeLocalState();
+    if (sync && this.syncClient && !this.applyingRemoteState) {
+      scheduleSharedSave(this);
+    }
   }
   addToPlan(itemId, day, period = null) {
     this.itinerary.push({ id: crypto.randomUUID(), itemId, day: Number(day), period });

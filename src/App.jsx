@@ -25,6 +25,7 @@ import {
   HeartOutlined,
   HomeOutlined,
   InboxOutlined,
+  LogoutOutlined,
   PlusOutlined,
   CloudOutlined,
   RollbackOutlined,
@@ -45,6 +46,7 @@ import {
   message,
 } from "antd";
 import { useTripStore } from "./store/TripStore.jsx";
+import { useAuth } from "./auth/AuthGate.jsx";
 import waymateLogo from "./assets/WayMate_logo.png";
 
 const rubles = (amount) => `${new Intl.NumberFormat("ru-RU").format(amount)} ₽`;
@@ -2012,7 +2014,15 @@ const ObservedCatalogPage = observer(CatalogPage);
 
 const App = observer(function App() {
   const store = useTripStore();
+  const { session, signOut } = useAuth();
   const location = useLocation();
+  const syncLabels = {
+    connecting: "Загрузка общей базы",
+    saving: "Сохраняем изменения…",
+    synced: "Общий план синхронизирован",
+    error: "Ошибка синхронизации",
+    local: "Локальные данные",
+  };
   const pageTitles = {
     "/plan": "План поездки",
     "/approval": "Согласование",
@@ -2042,6 +2052,20 @@ const App = observer(function App() {
             <span>{title}</span>
           </div>
           <div className="topbar-actions">
+            <Tooltip title={`Выйти (${session?.user?.email || "аккаунт"})`}>
+              <Button
+                className="topbar-signout"
+                aria-label="Выйти из общего аккаунта"
+                icon={<LogoutOutlined />}
+                onClick={signOut}
+              />
+            </Tooltip>
+            <span
+              className={`topbar-status sync-${store.syncStatus}`}
+              title={store.syncError || syncLabels[store.syncStatus]}
+            >
+              <i /> {syncLabels[store.syncStatus] || "Общая база"}
+            </span>
             <span className="topbar-status">
               <i /> Планируем вместе
             </span>

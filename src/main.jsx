@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { ConfigProvider } from 'antd';
 import { HashRouter } from 'react-router-dom';
 import App from './App.jsx';
+import AuthGate from './auth/AuthGate.jsx';
 import { TripProvider } from './store/TripStore.jsx';
 import 'antd/dist/reset.css';
 import './styles.css';
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     >
       <TripProvider>
         <HashRouter>
-          <App />
+          <AuthGate>
+            <App />
+          </AuthGate>
         </HashRouter>
       </TripProvider>
     </ConfigProvider>

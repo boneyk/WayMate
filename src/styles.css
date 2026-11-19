@@ -3121,3 +3121,112 @@ p {
   .approval-card-footer { align-items: flex-start; font-size: 11px; }
   .approval-day { min-height: 28px; padding: 0 9px; font-size: 11px; }
 }
+
+.topbar-actions > .topbar-status:not([class*="sync-"]),
+.topbar-avatar {
+  display: none;
+}
+
+.topbar-status.sync-synced i {
+  background: #4b9278;
+}
+
+.topbar-status.sync-saving i,
+.topbar-status.sync-connecting i {
+  background: #d59a42;
+  animation: sync-pulse 1s ease-in-out infinite alternate;
+}
+
+.topbar-status.sync-error i {
+  background: #cf5548;
+}
+
+.topbar-signout.ant-btn {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #e5e9e2;
+  border-radius: 50%;
+  color: #61716a;
+}
+
+.shared-auth-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 15% 15%, #e5eee7 0, transparent 34%), #f7f6f1;
+}
+
+.shared-auth-card.ant-card {
+  width: min(100%, 430px);
+  border: 1px solid #e7e9e2;
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgb(35 57 48 / 11%);
+}
+
+.shared-auth-card .ant-card-body {
+  display: grid;
+  gap: 18px;
+  padding: 34px;
+}
+
+.shared-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #27463e;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.shared-auth-brand > span:last-child > span {
+  color: #b77950;
+}
+
+.shared-auth-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  background: #e8f0e9;
+  color: #276459;
+  font-size: 20px;
+}
+
+.shared-auth-card h2.ant-typography {
+  margin: 0;
+  color: #243e36;
+}
+
+.shared-auth-copy,
+.shared-auth-hint {
+  color: #748078;
+  line-height: 1.55;
+}
+
+.shared-auth-card .ant-alert {
+  border-radius: 12px;
+}
+
+.shared-auth-hint {
+  font-size: 12px;
+}
+
+.shared-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@keyframes sync-pulse {
+  to { opacity: .35; }
+}
+
+@media (max-width: 640px) {
+  .shared-auth-screen { padding: 16px; }
+  .shared-auth-card .ant-card-body { padding: 24px; }
+  .topbar-status.sync-synced { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
