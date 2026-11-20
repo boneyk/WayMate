@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import {
   Link,
@@ -7,6 +7,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import {
   AppstoreOutlined,
@@ -24,7 +25,9 @@ import {
   HeartFilled,
   HeartOutlined,
   HomeOutlined,
+  IdcardOutlined,
   InboxOutlined,
+  InfoCircleOutlined,
   LogoutOutlined,
   PlusOutlined,
   CloudOutlined,
@@ -52,11 +55,14 @@ import waymateLogo from "./assets/WayMate_logo.png";
 const rubles = (amount) => `${new Intl.NumberFormat("ru-RU").format(amount)} ₽`;
 const tripStartTimestamp = Date.UTC(2027, 1, 22);
 const tripDate = (day, includeYear = false) => {
-  const date = new Date(tripStartTimestamp + (Number(day) - 1) * 24 * 60 * 60 * 1000);
+  const date = new Date(
+    tripStartTimestamp + (Number(day) - 1) * 24 * 60 * 60 * 1000,
+  );
   const dayMonth = `${String(date.getUTCDate()).padStart(2, "0")}.${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   return includeYear ? `${dayMonth}.${date.getUTCFullYear()}` : dayMonth;
 };
-const tripDateRange = (dayCount) => `${tripDate(1, true)}–${tripDate(dayCount, true)}`;
+const tripDateRange = (dayCount) =>
+  `${tripDate(1, true)}–${tripDate(dayCount, true)}`;
 const plural = (count, one, few, many) => {
   const mod10 = count % 10;
   const mod100 = count % 100;
@@ -73,7 +79,9 @@ const formatDatePeriod = (period) => {
   if (period?.startDay != null && period?.endDay != null) {
     const startDay = String(period.startDay).padStart(2, "0");
     const endDay = String(period.endDay).padStart(2, "0");
-    return startDay === endDay ? `День ${startDay}` : `Дни ${startDay}–${endDay}`;
+    return startDay === endDay
+      ? `День ${startDay}`
+      : `Дни ${startDay}–${endDay}`;
   }
   if (!period?.start || !period?.end) return "";
   const start = formatCalendarDate(period.start);
@@ -84,18 +92,32 @@ const navItems = [
   {
     to: "/plan",
     label: "План поездки",
+    mobileLabel: "План",
     icon: <CalendarOutlined />,
     count: (store) => store.itinerary.length,
   },
   {
     to: "/approval",
     label: "Согласование",
+    mobileLabel: "Соглас.",
     icon: <CheckCircleOutlined />,
     count: (store) => store.proposals.length,
   },
-  { to: "/budget", label: "Бюджет поездки", icon: <WalletOutlined /> },
-  { to: "/catalog", label: "Каталог", icon: <AppstoreOutlined /> },
+  {
+    to: "/budget",
+    label: "Бюджет поездки",
+    mobileLabel: "Бюджет",
+    icon: <WalletOutlined />,
+  },
+  {
+    to: "/catalog",
+    label: "Каталог",
+    mobileLabel: "Каталог",
+    icon: <AppstoreOutlined />,
+  },
 ];
+
+const mobileTabPaths = navItems.map((item) => item.to);
 
 function Sidebar({ store }) {
   return (
@@ -287,11 +309,12 @@ function AddToPlanModal({ item, open, onClose, initialDay = 1 }) {
   const periodEndDay = Form.useWatch("periodEndDay", form);
   const selectedDayField = Form.useWatch("day", form);
   const selectedDay = choosePeriod
-    ? periodStartDay ?? Math.min(initialDay, maxStartDay)
-    : selectedDayField ?? Math.min(initialDay, maxStartDay);
-  const plannedStayDays = item.kind === "stay"
-    ? Math.min(item.durationDays || 1, store.dayCount - selectedDay + 1)
-    : 0;
+    ? (periodStartDay ?? Math.min(initialDay, maxStartDay))
+    : (selectedDayField ?? Math.min(initialDay, maxStartDay));
+  const plannedStayDays =
+    item.kind === "stay"
+      ? Math.min(item.durationDays || 1, store.dayCount - selectedDay + 1)
+      : 0;
   const handleAdd = async () => {
     try {
       const {
@@ -301,15 +324,22 @@ function AddToPlanModal({ item, open, onClose, initialDay = 1 }) {
       } = form.getFieldsValue();
       if (
         usePeriod &&
-        (selectedPeriodStart == null || selectedPeriodEnd == null || selectedPeriodEnd < selectedPeriodStart)
+        (selectedPeriodStart == null ||
+          selectedPeriodEnd == null ||
+          selectedPeriodEnd < selectedPeriodStart)
       ) {
         messageApi.error("Укажите начало и конец периода дней");
         return;
       }
       const { approvedBy } = await form.validateFields();
-      const day = usePeriod ? Number(selectedPeriodStart) : form.getFieldValue("day");
+      const day = usePeriod
+        ? Number(selectedPeriodStart)
+        : form.getFieldValue("day");
       const period = usePeriod
-        ? { startDay: Number(selectedPeriodStart), endDay: Number(selectedPeriodEnd) }
+        ? {
+            startDay: Number(selectedPeriodStart),
+            endDay: Number(selectedPeriodEnd),
+          }
         : null;
       const result = store.proposeItem(item.id, day, approvedBy, period);
       messageApi.success(
@@ -340,7 +370,9 @@ function AddToPlanModal({ item, open, onClose, initialDay = 1 }) {
         </div>
         <h2>Добавить в план?</h2>
         <p className="modal-copy">
-          Отметьте тех, кто уже согласен. Если проголосуют все, идея сразу попадёт в план; иначе её можно будет согласовать во вкладке «Согласование».
+          Отметьте тех, кто уже согласен. Если проголосуют все, идея сразу
+          попадёт в план; иначе её можно будет согласовать во вкладке
+          «Согласование».
         </p>
         {item.kind === "stay" && (
           <p className="stay-duration-hint">
@@ -351,19 +383,33 @@ function AddToPlanModal({ item, open, onClose, initialDay = 1 }) {
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ day: Math.min(initialDay, maxStartDay), choosePeriod: false }}
+          initialValues={{
+            day: Math.min(initialDay, maxStartDay),
+            choosePeriod: false,
+          }}
         >
-          <Form.Item name="choosePeriod" valuePropName="checked" className="period-toggle">
+          <Form.Item
+            name="choosePeriod"
+            valuePropName="checked"
+            className="period-toggle"
+          >
             <Checkbox>Выбрать период</Checkbox>
           </Form.Item>
           {choosePeriod ? (
             <div className="form-two">
-              <Form.Item name="periodStartDay" label="С какого дня?" preserve={false}>
+              <Form.Item
+                name="periodStartDay"
+                label="С какого дня?"
+                preserve={false}
+              >
                 <Select
-                  options={Array.from({ length: store.dayCount }, (_, index) => ({
-                    value: index + 1,
-                    label: `День ${String(index + 1).padStart(2, "0")}`,
-                  }))}
+                  options={Array.from(
+                    { length: store.dayCount },
+                    (_, index) => ({
+                      value: index + 1,
+                      label: `День ${String(index + 1).padStart(2, "0")}`,
+                    }),
+                  )}
                   onChange={(startDay) => {
                     if (periodEndDay != null && periodEndDay < startDay) {
                       form.setFieldValue("periodEndDay", undefined);
@@ -371,13 +417,21 @@ function AddToPlanModal({ item, open, onClose, initialDay = 1 }) {
                   }}
                 />
               </Form.Item>
-              <Form.Item name="periodEndDay" label="По какой день?" preserve={false}>
+              <Form.Item
+                name="periodEndDay"
+                label="По какой день?"
+                preserve={false}
+              >
                 <Select
-                  options={Array.from({ length: store.dayCount }, (_, index) => ({
-                    value: index + 1,
-                    label: `День ${String(index + 1).padStart(2, "0")}`,
-                    disabled: periodStartDay != null && index + 1 < periodStartDay,
-                  }))}
+                  options={Array.from(
+                    { length: store.dayCount },
+                    (_, index) => ({
+                      value: index + 1,
+                      label: `День ${String(index + 1).padStart(2, "0")}`,
+                      disabled:
+                        periodStartDay != null && index + 1 < periodStartDay,
+                    }),
+                  )}
                 />
               </Form.Item>
             </div>
@@ -426,6 +480,56 @@ function AddToPlanModal({ item, open, onClose, initialDay = 1 }) {
   );
 }
 
+function IdeaDescriptionButton({ item }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        type="link"
+        className="idea-description-trigger"
+        aria-label={`Открыть описание: ${item.title}`}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        <span>{item.title}</span>
+        <InfoCircleOutlined aria-hidden="true" />
+      </Button>
+      <Modal
+        open={open}
+        onCancel={() => setOpen(false)}
+        footer={null}
+        centered
+        width={480}
+        className="trip-modal idea-description-modal"
+        destroyOnClose
+      >
+        <div className="modal-kicker">
+          <InfoCircleOutlined /> {item.category}
+        </div>
+        <h2>{item.title}</h2>
+        <p className="modal-copy">
+          {item.description?.trim() || "Описание пока не добавлено."}
+        </p>
+        {item.place && (
+          <div className="idea-description-place">
+            <EnvironmentOutlined /> {item.place}
+          </div>
+        )}
+        {item.url && (
+          <a
+            className="source-link idea-description-source"
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Открыть источник <ExportOutlined />
+          </a>
+        )}
+      </Modal>
+    </>
+  );
+}
+
 function PlannedEntry({ entry, store }) {
   const item = entry.item;
   const cost = store.getPlannedCost(item, entry.durationDays);
@@ -436,16 +540,25 @@ function PlannedEntry({ entry, store }) {
     Number.isInteger(Number(entry.period?.endDay)) &&
     Number(entry.period.startDay) >= 1 &&
     Number(entry.period.endDay) >= Number(entry.period.startDay);
-  const isPeriodContinuation =
-    hasPeriod && entry.displayDay > Number(entry.period.startDay);
+  const displayDays = hasPeriod
+    ? Number(entry.period.endDay) - Number(entry.period.startDay) + 1
+    : Math.max(1, Number(entry.durationDays) || 1);
+  const isDailyPrice =
+    item.dailyRate != null ||
+    ["perDay", "perPersonDay"].includes(item.priceMode);
+  const dailyCost =
+    cost == null
+      ? null
+      : isDailyPrice
+        ? store.getPlannedCost(item, 1)
+        : cost / displayDays;
+  const showDailyCost = displayDays > 1 || item.dailyRate != null;
   const costLabel =
-    item.kind === "stay" && item.dailyRate != null
-      ? `${rubles(item.dailyRate * (item.perPerson ? store.travelers : 1))} / день`
-      : (item.kind === "stay" && entry.dayOffset > 0) || isPeriodContinuation
-        ? "Включено"
-        : cost == null
-          ? "уточнить"
-          : rubles(cost);
+    dailyCost == null
+      ? "уточнить"
+      : showDailyCost
+        ? `${rubles(dailyCost)} / день`
+        : rubles(cost);
   return (
     <div className="planned-entry">
       <span className={`entry-type ${item.kind}`}>
@@ -458,7 +571,7 @@ function PlannedEntry({ entry, store }) {
         )}
       </span>
       <span className="entry-copy">
-        <strong>{item.title}</strong>
+        <IdeaDescriptionButton item={item} />
         <small>
           {item.kind === "stay"
             ? `${item.place} · день ${(hasPeriod ? entry.periodOffset : entry.dayOffset) + 1} из ${entry.durationDays}`
@@ -628,13 +741,6 @@ function PlanPage() {
             <Link className="all-ideas" to="/catalog">
               В каталог впечатлений <ArrowRightOutlined />
             </Link>
-          </div>
-          <div className="mini-note">
-            <span className="note-pip" />
-            <span>
-              <strong>Хороший план начинается с пауз</strong>
-              <small>Не нужно заполнять каждый день</small>
-            </span>
           </div>
         </aside>
       </div>
@@ -901,7 +1007,7 @@ function BudgetPage() {
                     <EnvironmentOutlined />
                   </span>
                   <strong>
-                    {entry.item.title}
+                    <IdeaDescriptionButton item={entry.item} />
                     <small>{entry.item.place}</small>
                   </strong>
                   <span className="budget-line-tag">
@@ -926,7 +1032,11 @@ function BudgetPage() {
                     okButtonProps={{ danger: true }}
                     onConfirm={() => store.removeFromPlan(entry.id)}
                   >
-                    <Button type="text" icon={<DeleteOutlined />} aria-label="Убрать из плана" />
+                    <Button
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      aria-label="Убрать из плана"
+                    />
                   </Popconfirm>{" "}
                 </div>
               ))}
@@ -950,7 +1060,11 @@ function BudgetPage() {
                     okButtonProps={{ danger: true }}
                     onConfirm={() => store.removeCustomCost(cost.id)}
                   >
-                    <Button type="text" icon={<DeleteOutlined />} aria-label="Удалить расход" />
+                    <Button
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      aria-label="Удалить расход"
+                    />
                   </Popconfirm>{" "}
                 </div>
               ))}
@@ -1113,6 +1227,7 @@ function ApprovalPage() {
   return (
     <>
       <PageHeading
+        className="approval-page-heading"
         eyebrow="ОБЩИЙ ВЫБОР УЧАСТНИКОВ"
         title="Согласование"
         subtitle="Здесь собраны идеи, которым ещё нужны голоса. Каждый вариант и выбранный для него день согласуются отдельно."
@@ -1185,8 +1300,8 @@ function ApprovalCard({ proposal, store }) {
             {proposal.period
               ? formatDatePeriod(proposal.period)
               : item.kind === "stay"
-              ? `Дни ${String(proposal.day).padStart(2, "0")}–${String(lastDay).padStart(2, "0")}`
-              : `День ${String(proposal.day).padStart(2, "0")}`}
+                ? `Дни ${String(proposal.day).padStart(2, "0")}–${String(lastDay).padStart(2, "0")}`
+                : `День ${String(proposal.day).padStart(2, "0")}`}
           </span>
         </div>
         <Popconfirm
@@ -1259,7 +1374,10 @@ function CatalogPage() {
   const categories = [
     "Всё",
     ...store.catalogCategories.filter(
-      (category) => !reservedFilters.includes(category.toLocaleLowerCase("ru").replace(/ё/g, "е")),
+      (category) =>
+        !reservedFilters.includes(
+          category.toLocaleLowerCase("ru").replace(/ё/g, "е"),
+        ),
     ),
     "Сохранённое",
     "Архив",
@@ -1304,15 +1422,19 @@ function CatalogPage() {
     messageApi.success(`«${item.title}» перемещена в архив`);
   };
   const handleRemoveCategory = (category) => {
-    const categoryItemCount = store.catalogItems.filter((item) => item.category === category).length;
+    const categoryItemCount = store.catalogItems.filter(
+      (item) => item.category === category,
+    ).length;
     if (!store.removeCatalogCategory(category)) {
       messageApi.error("Не удалось удалить категорию");
       return;
     }
     if (activeCategory === category) setActiveCategory("Всё");
-    messageApi.success(categoryItemCount
-      ? `Категория удалена, ${categoryItemCount} ${plural(categoryItemCount, "карточка отправлена", "карточки отправлены", "карточек отправлено")} в архив`
-      : "Категория удалена");
+    messageApi.success(
+      categoryItemCount
+        ? `Категория удалена, ${categoryItemCount} ${plural(categoryItemCount, "карточка отправлена", "карточки отправлены", "карточек отправлено")} в архив`
+        : "Категория удалена",
+    );
   };
   return (
     <>
@@ -1379,7 +1501,9 @@ function CatalogPage() {
       <div className="catalog-toolbar">
         <div className="catalog-filters">
           {categories.map((category) => {
-            const categoryKey = category.toLocaleLowerCase("ru").replace(/ё/g, "е");
+            const categoryKey = category
+              .toLocaleLowerCase("ru")
+              .replace(/ё/g, "е");
             const canDelete = !reservedFilters.includes(categoryKey);
             return (
               <div
@@ -1394,33 +1518,41 @@ function CatalogPage() {
                   {category}
                   {category === "Всё" && (
                     <span className="filter-pill-count">
-                      {store.catalogItems.filter((item) => !store.archivedItemIds.includes(item.id)).length}
+                      {
+                        store.catalogItems.filter(
+                          (item) => !store.archivedItemIds.includes(item.id),
+                        ).length
+                      }
                     </span>
                   )}
                   {category === "Архив" && (
                     <span className="filter-pill-count">
-                      {store.catalogItems.filter((item) => store.archivedItemIds.includes(item.id)).length}
+                      {
+                        store.catalogItems.filter((item) =>
+                          store.archivedItemIds.includes(item.id),
+                        ).length
+                      }
                     </span>
                   )}
                 </button>
                 {canDelete && (
                   <Tooltip title="Вы действительно хотите удалить?">
                     <span className="filter-pill-remove-tooltip">
-                  <Popconfirm
-                    title="Вы действительно хотите удалить?"
-                    okText="Да"
-                    cancelText="Отмена"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => handleRemoveCategory(category)}
-                  >
-                    <button
-                      type="button"
-                      className="filter-pill-remove"
-                      aria-label={`Удалить категорию «${category}»`}
-                    >
-                      <CloseOutlined />
-                    </button>
-                  </Popconfirm>
+                      <Popconfirm
+                        title="Вы действительно хотите удалить?"
+                        okText="Да"
+                        cancelText="Отмена"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => handleRemoveCategory(category)}
+                      >
+                        <button
+                          type="button"
+                          className="filter-pill-remove"
+                          aria-label={`Удалить категорию «${category}»`}
+                        >
+                          <CloseOutlined />
+                        </button>
+                      </Popconfirm>
                     </span>
                   </Tooltip>
                 )}
@@ -1525,15 +1657,20 @@ function CatalogItemModal({ open, item, onClose, onCreated }) {
   const [messageApi, contextHolder] = message.useMessage();
   const initialValues = {
     title: item?.title ?? "",
-    category: item && store.catalogCategories.includes(item.category)
-      ? item.category
-      : store.catalogCategories[0] ?? "Экскурсии",
+    category:
+      item && store.catalogCategories.includes(item.category)
+        ? item.category
+        : (store.catalogCategories[0] ?? "Экскурсии"),
     place: item?.place ?? "",
     description: item?.description ?? "",
     price: item?.price ?? undefined,
     priceMode: item?.priceMode ?? "fixed",
     perPerson: item
-      ? Boolean(item.perPerson || item.priceMode === "perPerson" || item.priceMode === "perPersonDay")
+      ? Boolean(
+          item.perPerson ||
+          item.priceMode === "perPerson" ||
+          item.priceMode === "perPersonDay",
+        )
       : false,
     dailyRate: item?.dailyRate ?? undefined,
     durationDays: item?.durationDays ?? 1,
@@ -1733,7 +1870,8 @@ function CategoryModal({ open, onClose, onCreated }) {
         </div>
         <h2>Новая категория</h2>
         <p className="modal-copy">
-          Категория появится в фильтрах и в карточках каталога. Чтобы удалить её, нажмите × рядом с названием категории.
+          Категория появится в фильтрах и в карточках каталога. Чтобы удалить
+          её, нажмите × рядом с названием категории.
         </p>
         <Form form={form} layout="vertical">
           <Form.Item
@@ -1796,7 +1934,9 @@ function AddIdeaModal({ open, onClose, onCreated }) {
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ category: store.catalogCategories[0] ?? "Экскурсии" }}
+          initialValues={{
+            category: store.catalogCategories[0] ?? "Экскурсии",
+          }}
         >
           <Form.Item
             label="Название идеи"
@@ -1817,7 +1957,12 @@ function AddIdeaModal({ open, onClose, onCreated }) {
               name="category"
               rules={[{ required: true }]}
             >
-              <Select options={store.catalogCategories.map((name) => ({ value: name, label: name }))} />
+              <Select
+                options={store.catalogCategories.map((name) => ({
+                  value: name,
+                  label: name,
+                }))}
+              />
             </Form.Item>
             <Form.Item label="Место" name="place">
               <Input placeholder="Город или район" maxLength={50} />
@@ -1891,7 +2036,9 @@ function CatalogCard({
                 type="button"
                 className={`save-button${saved ? " saved" : ""}`}
                 onClick={onSave}
-                aria-label={saved ? "Удалить из сохранённого" : "Сохранить идею"}
+                aria-label={
+                  saved ? "Удалить из сохранённого" : "Сохранить идею"
+                }
                 title={saved ? "Удалить из сохранённого" : "Сохранить идею"}
               >
                 {saved ? <HeartFilled /> : <HeartOutlined />}
@@ -1932,8 +2079,9 @@ function CatalogCard({
             <span>❄</span>
           ) : item.id === "icefalls" ? (
             <span>✳</span>
-          ) : item.id === "ski-pass" ||
-            item.id === "ski-rental" ||
+          ) : item.id === "ski-pass" ? (
+            <IdcardOutlined />
+          ) : item.id === "ski-rental" ||
             item.id === "ski-suit" ? (
             <span>⌁</span>
           ) : (
@@ -1975,7 +2123,11 @@ function CatalogCard({
             </small>
           </div>
           {archived ? (
-            <Button className="catalog-add catalog-restore" icon={<RollbackOutlined />} onClick={onRestore}>
+            <Button
+              className="catalog-add catalog-restore"
+              icon={<RollbackOutlined />}
+              onClick={onRestore}
+            >
               Вернуть в каталог
             </Button>
           ) : (
@@ -2016,11 +2168,62 @@ const App = observer(function App() {
   const store = useTripStore();
   const { session, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const swipeStartRef = useRef(null);
+  const handleTouchStart = (event) => {
+    swipeStartRef.current = null;
+    if (window.innerWidth > 640 || event.touches.length !== 1) return;
+
+    const target = event.target;
+    if (
+      !target?.closest ||
+      target.closest(
+        "a, button, input, textarea, select, label, [role='button'], [role='checkbox'], [contenteditable='true'], .ant-select, .catalog-filters",
+      )
+    ) {
+      return;
+    }
+
+    let element = target;
+    while (element && element !== event.currentTarget) {
+      const styles = window.getComputedStyle(element);
+      if (
+        /(auto|scroll)/.test(styles.overflowX) &&
+        element.scrollWidth > element.clientWidth + 4
+      ) {
+        return;
+      }
+      element = element.parentElement;
+    }
+
+    swipeStartRef.current = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY,
+    };
+  };
+  const handleTouchEnd = (event) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start || event.changedTouches.length !== 1) return;
+
+    const deltaX = event.changedTouches[0].clientX - start.x;
+    const deltaY = event.changedTouches[0].clientY - start.y;
+    if (Math.abs(deltaX) < 64 || Math.abs(deltaX) < Math.abs(deltaY) * 1.3) {
+      return;
+    }
+
+    const currentIndex = mobileTabPaths.indexOf(location.pathname);
+    if (currentIndex < 0) return;
+    const nextIndex = currentIndex + (deltaX < 0 ? 1 : -1);
+    if (nextIndex >= 0 && nextIndex < mobileTabPaths.length) {
+      navigate(mobileTabPaths[nextIndex]);
+    }
+  };
   const syncLabels = {
-    connecting: "Загрузка общей базы",
-    saving: "Сохраняем изменения…",
-    synced: "Общий план синхронизирован",
-    error: "Ошибка синхронизации",
+    connecting: "Загрузка",
+    saving: "Сохранение",
+    synced: "Синхронизировано",
+    error: "Ошибка",
     local: "Локальные данные",
   };
   const pageTitles = {
@@ -2033,7 +2236,14 @@ const App = observer(function App() {
   return (
     <div className="app-shell">
       <ObservedSidebar store={store} />
-      <main className="main-area">
+      <main
+        className="main-area"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => {
+          swipeStartRef.current = null;
+        }}
+      >
         <div className="mobile-brand">
           <span className="brand-mark">
             <img src={waymateLogo} alt="" />
@@ -2052,6 +2262,12 @@ const App = observer(function App() {
             <span>{title}</span>
           </div>
           <div className="topbar-actions">
+            <span
+              className={`topbar-status sync-${store.syncStatus}`}
+              title={store.syncError || syncLabels[store.syncStatus]}
+            >
+              <i /> {syncLabels[store.syncStatus] || "Общая база"}
+            </span>
             <Tooltip title={`Выйти (${session?.user?.email || "аккаунт"})`}>
               <Button
                 className="topbar-signout"
@@ -2060,12 +2276,6 @@ const App = observer(function App() {
                 onClick={signOut}
               />
             </Tooltip>
-            <span
-              className={`topbar-status sync-${store.syncStatus}`}
-              title={store.syncError || syncLabels[store.syncStatus]}
-            >
-              <i /> {syncLabels[store.syncStatus] || "Общая база"}
-            </span>
             <span className="topbar-status">
               <i /> Планируем вместе
             </span>
@@ -2077,15 +2287,20 @@ const App = observer(function App() {
             <NavLink
               key={item.to}
               to={item.to}
+              aria-label={item.label}
               className={({ isActive }) =>
                 `mobile-nav-link${isActive ? " active" : ""}`
               }
             >
-              <span>{item.icon}</span>
-              {item.label}
-              {item.count?.(store) > 0 && (
-                <small className="mobile-nav-count">{item.count(store)}</small>
-              )}
+              <span className="mobile-nav-icon">
+                {item.icon}
+                {item.count?.(store) > 0 && (
+                  <small className="mobile-nav-count">
+                    {item.count(store)}
+                  </small>
+                )}
+              </span>
+              <span className="mobile-nav-label">{item.mobileLabel}</span>
             </NavLink>
           ))}
         </nav>

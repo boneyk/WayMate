@@ -3230,3 +3230,230 @@ p {
   .shared-auth-card .ant-card-body { padding: 24px; }
   .topbar-status.sync-synced { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+@media (max-width: 640px) {
+  .main-area {
+    overflow-x: clip;
+  }
+
+  .mobile-brand {
+    min-width: 0;
+  }
+
+  .mobile-trip {
+    max-width: 44vw;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .topbar-breadcrumb {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar-breadcrumb > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-actions {
+    flex: 0 0 auto;
+  }
+
+  .topbar-status.sync-connecting,
+  .topbar-status.sync-saving,
+  .topbar-status.sync-error,
+  .topbar-status.sync-local {
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-nav {
+    position: sticky;
+    top: 0;
+    z-index: 7;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 4px;
+    min-height: 0;
+    padding: 6px 8px;
+    overscroll-behavior-x: contain;
+  }
+
+  .mobile-nav-link {
+    position: relative;
+    display: grid;
+    grid-template-rows: 18px auto;
+    justify-items: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: 47px;
+    padding: 5px 2px;
+    overflow: hidden;
+    border-radius: 9px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .mobile-nav-icon {
+    position: relative;
+    display: grid;
+    width: 22px;
+    height: 18px;
+    place-items: center;
+    font-size: 15px;
+  }
+
+  .mobile-nav-label {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-nav-count {
+    position: absolute;
+    top: -4px;
+    right: -8px;
+    min-width: 15px;
+    padding: 0 4px;
+    font-size: 9px;
+    line-height: 14px;
+  }
+
+  .page-content {
+    min-width: 0;
+    overscroll-behavior-x: contain;
+  }
+}
+
+.idea-description-trigger.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  line-height: 1.35;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: #c7d6cb;
+  text-underline-offset: 3px;
+  vertical-align: baseline;
+}
+
+.idea-description-trigger.ant-btn > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.idea-description-trigger.ant-btn .anticon {
+  flex: 0 0 auto;
+  color: #789788;
+  font-size: .9em;
+}
+
+.idea-description-trigger.ant-btn:hover {
+  color: #276459;
+  text-decoration-color: #276459;
+}
+
+.idea-description-trigger.ant-btn:focus-visible {
+  outline: 2px solid #78a896;
+  outline-offset: 3px;
+}
+
+.entry-copy .idea-description-trigger.ant-btn {
+  color: #37473f;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.idea-description-place {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #748078;
+  font-size: 13px;
+}
+
+.idea-description-place .anticon {
+  color: #709384;
+}
+
+.idea-description-source.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .entry-copy .idea-description-trigger.ant-btn {
+    font-size: 11px;
+  }
+
+  .approval-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .approval-page-heading > a {
+    align-self: flex-start;
+    width: auto;
+  }
+
+  .approval-page-heading > a .ant-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: auto;
+    min-width: 44px;
+    height: 40px;
+    overflow: visible;
+    padding: 0 14px;
+    color: #fff;
+    font-size: 13px;
+  }
+
+  .approval-page-heading > a .ant-btn .anticon {
+    margin-inline-end: 0;
+    color: #fff;
+    font-size: 14px;
+  }
+
+  .idea-description-source.source-link {
+    font-size: 12px;
+  }
+}
+
+.catalog-card,
+.catalog-card-body,
+.catalog-card-bottom,
+.card-price {
+  min-width: 0;
+}
